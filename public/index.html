@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>漆线雕 · 金粉领用与回库核销台</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header>
+    <div>
+      <h1>漆线雕工坊 · 金粉领用与回库核销台</h1>
+      <div class="sub">待阴干且无缺陷方可领用 · 一批金粉仅服务一张未关闭领用单 · 损耗超两成转复核</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <span class="meta" id="serverTime">—</span>
+      <button class="ghost" id="refreshBtn" type="button">刷新</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="stat-row" id="stats"></section>
+
+    <nav class="tabs">
+      <button data-tab="queue" class="active" type="button">队列</button>
+      <button data-tab="issue" type="button">领用登记</button>
+      <button data-tab="return" type="button">回库核销</button>
+      <button data-tab="works" type="button">作品与批次</button>
+      <button data-tab="ledger" type="button">台账</button>
+    </nav>
+
+    <section id="tab-queue">
+      <div class="board">
+        <div class="col">
+          <h3><span>可领用（待阴干 · 无缺陷）</span><span id="cnt-eligible" class="pill">0</span></h3>
+          <div id="queue-eligible"></div>
+        </div>
+        <div class="col">
+          <h3><span>未核销领用单</span><span id="cnt-open" class="pill">0</span></h3>
+          <div id="queue-open"></div>
+        </div>
+        <div class="col">
+          <h3><span>待复核（损耗 &gt; 20%）</span><span id="cnt-review" class="pill">0</span></h3>
+          <div id="queue-review"></div>
+        </div>
+        <div class="col">
+          <h3><span>最近失效单</span><span id="cnt-invalid" class="pill">0</span></h3>
+          <div id="queue-invalid"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-issue" hidden>
+      <div class="forms">
+        <form class="panel" id="issueForm">
+          <h2>金粉领用登记</h2>
+          <label>作品（仅待阴干、无缺陷）
+            <select name="workId" required></select>
+          </label>
+          <label>金粉批次（未关闭单占用的批次不可选）
+            <select name="batchId" required></select>
+          </label>
+          <div class="grid2">
+            <label>净重（克）<input name="netWeight" type="number" step="0.001" min="0.001" required></label>
+            <label>领用人<input name="receiver" required placeholder="如：阿珍"></label>
+          </div>
+          <button type="submit">登记领用</button>
+          <div class="meta">系统自动登记阴干完成时刻；该作品阴干未满 24 小时不能转待交付。</div>
+        </form>
+
+        <form class="panel" id="batchForm">
+          <h2>新增金粉批次</h2>
+          <label>批次名称<input name="label" required placeholder="24K 库金 · 丁批"></label>
+          <div class="grid2">
+            <label>成色<input name="purity" placeholder="98%"></label>
+            <label>入库净重（克）<input name="weight" type="number" step="0.001" min="0.001" required></label>
+          </div>
+          <button type="submit" class="secondary">建批次</button>
+        </form>
+      </div>
+    </section>
+
+    <section id="tab-return" hidden>
+      <div class="forms">
+        <form class="panel" id="returnForm">
+          <h2>回库核销</h2>
+          <label>领用单<select name="orderId" required></select></label>
+          <div class="grid3">
+            <label>余粉（克）<input name="remaining" type="number" step="0.001" min="0" required></label>
+            <label>报废量（克）<input name="scrapped" type="number" step="0.001" min="0" required></label>
+            <label>回库复核人<input name="checker" required placeholder="不得为原领用人"></label>
+          </div>
+          <button type="submit" class="warn">提交回库</button>
+          <div class="meta">报废量超过领用量两成时自动转复核，需他人再次复核后核销。</div>
+        </form>
+
+        <form class="panel" id="reviewForm">
+          <h2>复核结论</h2>
+          <label>待复核单<select name="orderId" required></select></label>
+          <div class="grid2">
+            <label>复核结论
+              <select name="decision"><option value="approve">通过，予以核销</option><option value="reject">驳回，重新回库</option></select>
+            </label>
+            <label>复核人<input name="reviewer" required placeholder="不得为原领用人"></label>
+          </div>
+          <label>复核说明<input name="note" placeholder="可选"></label>
+          <button type="submit" class="violet">提交复核</button>
+        </form>
+      </div>
+    </section>
+
+    <section id="tab-works" hidden>
+      <div class="forms">
+        <form class="panel" id="workForm">
+          <h2>新增作品</h2>
+          <div class="grid2">
+            <label>胎体<input name="base" required placeholder="木胎香盒"></label>
+            <label>纹样<input name="theme" required placeholder="海水江崖"></label>
+          </div>
+          <div class="grid2">
+            <label>当前状态
+              <select name="status"><option>贴线中</option><option selected>待阴干</option><option>上金粉</option></select>
+            </label>
+            <label>阴干完成于
+              <select name="dryOption" id="dryOption">
+                <option value="now">现在</option>
+                <option value="ago26">26 小时前（已满 24h）</option>
+                <option value="later" id="dryLaterOpt">稍后手工指定</option>
+              </select>
+            </label>
+          </div>
+          <label id="dryTimeWrap" hidden>阴干完成时刻<input name="driedAt" type="datetime-local"></label>
+          <button type="submit">建件</button>
+        </form>
+
+        <div class="panel">
+          <h2>作品清单</h2>
+          <div id="workList"></div>
+        </div>
+
+        <div class="panel">
+          <h2>批次库存</h2>
+          <table>
+            <thead><tr><th>批次</th><th>成色</th><th>入库</th><th>余存</th><th>占用单</th></tr></thead>
+            <tbody id="batchList"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-ledger" hidden>
+      <div class="panel">
+        <h2>领用台账
+          <button class="ghost" type="button" id="exportBtn" style="float:right">导出 JSON</button>
+        </h2>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr>
+              <th>单号</th><th>作品</th><th>批次</th><th>领用净重</th><th>领用人</th>
+              <th>领用/阴干时刻</th><th>余粉</th><th>报废</th><th>损耗率</th><th>状态</th><th>复核轨迹</th>
+            </tr></thead>
+            <tbody id="ledgerRows"></tbody>
+          </table>
+        </div>
+        <div class="actions" style="max-width:240px;margin-top:12px">
+          <button class="danger" id="resetBtn" type="button">重置为演示数据</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="workDialog">
+    <form method="dialog" class="dialog-body" id="workDialogForm">
+      <h2 id="dlgTitle">作品操作</h2>
+      <div id="dlgContent" class="meta"></div>
+      <div class="grid2">
+        <button type="button" id="toDrying" class="secondary">转待阴干（记现在）</button>
+        <button type="button" id="toGold" class="ghost">转上金粉</button>
+      </div>
+      <button type="button" id="toDeliver" class="warn">转待交付（须阴干满 24h）</button>
+      <label>胎体<input id="editBase"></label>
+      <label>纹样<input id="editTheme"></label>
+      <label>登记缺陷（将立即失效该作品的未核销单）<input id="addDefect" placeholder="断线/翘线位置"></label>
+      <div class="actions">
+        <button type="button" id="saveChanges" class="warn">保存胎体/纹样/缺陷</button>
+        <button type="button" id="clearDefects" class="ghost">清除缺陷</button>
+        <button type="button" id="dlgClose" class="secondary">关闭</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast"></div>
+  <script src="/app.js"></script>
+</body>
+</html>

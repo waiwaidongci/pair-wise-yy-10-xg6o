@@ -1,0 +1,13 @@
+{
+  "name": "lacquer-gold-desk",
+  "version": "1.0.0",
+  "private": true,
+  "description": "漆线雕工坊 · 金粉领用与回库核销台（规则 / 台账 / 页面三层分离）",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test"
+  }
+}

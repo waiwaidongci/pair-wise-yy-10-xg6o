@@ -14,3 +14,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+
+# 运行时台账（首次启动自动播种演示数据）
+data/
